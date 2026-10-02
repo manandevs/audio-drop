@@ -1,0 +1,7 @@
+{
+  "name": "Audio Drop",
+  "description": "AirDrop for audio files, voice memos, and instant sound sharing with waveforms",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
