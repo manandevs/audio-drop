@@ -2,130 +2,69 @@
 
 import React, { useState } from 'react';
 import { 
-  Download, Music, ShieldCheck, Smartphone, Zap, CheckCircle2, 
+  Music, ShieldCheck, Smartphone, Zap, 
   ChevronDown, ChevronUp, Copy, Check, AlertCircle, RefreshCw, 
-  Share2, Headphones, Lock
+  Share2, Headphones, Lock, ExternalLink
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-
-interface TrackMetadata {
-  id: string;
-  url: string;
-  title: string;
-  artist: string;
-  thumbnail: string;
-  duration: string;
-  durationSeconds: number;
-  bitrates: string[];
-  streamUrl: string;
-  fileSize: string;
-}
+import { usePreview } from '@/hooks/usePreview';
 
 export default function DownCloudMeApp() {
   const [urlInput, setUrlInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [trackData, setTrackData] = useState<TrackMetadata | null>(null);
-  const [selectedBitrate, setSelectedBitrate] = useState('320kbps (High Quality)');
-  const [isDownloading, setIsDownloading] = useState(false);
+  const { data, isLoading, error, fetchPreview, setError } = usePreview();
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'desktop' | 'mobile'>('desktop');
 
   const sampleUrl = 'https://soundcloud.com/jroomy/birds-sound';
 
-  // Handle URL conversion
-  const handleConvert = async (targetUrl?: string) => {
-    const queryUrl = targetUrl || urlInput;
-    if (!queryUrl.trim()) {
-      setErrorMsg('Please enter a valid SoundCloud track or playlist URL.');
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMsg('');
-    setTrackData(null);
-
-    try {
-      const res = await fetch('/api/convert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: queryUrl })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to convert URL.');
-      }
-
-      setTrackData(data.track);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMsg(err.message);
-      } else {
-        setErrorMsg('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle download MP3
-  const handleDownload = async () => {
-    if (!trackData) return;
-    setIsDownloading(true);
-
-    try {
-      const downloadApiUrl = `/api/download?url=${encodeURIComponent(trackData.streamUrl)}&title=${encodeURIComponent(trackData.title)}&artist=${encodeURIComponent(trackData.artist)}`;
-      
-      const a = document.createElement('a');
-      a.href = downloadApiUrl;
-      a.download = `${trackData.artist} - ${trackData.title}.mp3`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Download trigger error:', err);
-      setErrorMsg('Failed to download file. Please try again.');
-    } finally {
-      setTimeout(() => setIsDownloading(false), 1500);
-    }
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    fetchPreview(urlInput);
   };
 
   const handlePasteClipboard = async () => {
     try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        setUrlInput(text);
-        handleConvert(text);
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setUrlInput(text);
+          fetchPreview(text);
+          return;
+        }
       }
+      throw new Error('Clipboard API unavailable');
     } catch {
-      setErrorMsg('Clipboard permission denied or unavailable.');
+      setError('Please paste the URL manually into the input box.');
     }
+  };
+
+  const handleSampleClick = () => {
+    setUrlInput(sampleUrl);
+    fetchPreview(sampleUrl);
   };
 
   const faqs = [
     {
-      q: "How to download SoundCloud songs on iPhone or Android?",
-      a: "Copy the SoundCloud track link, paste it into our search box above, wait for the metadata conversion, and tap the 'Download MP3' button. On iOS (Safari), check your downloads manager to save the file to your Files app."
+      q: "How to preview SoundCloud tracks on iPhone or Android?",
+      a: "Copy the SoundCloud track link, paste it into our search box above, wait for the metadata preview, and play or open it instantly."
     },
     {
       q: "Is DownCloudMe 100% free to use?",
-      a: "Yes, DownCloudMe is completely free with no registration, accounts, or subscriptions required. Convert and download as many tracks as you need."
+      a: "Yes, DownCloudMe is completely free with no registration, accounts, or subscriptions required."
     },
     {
-      q: "What audio bitrates are supported?",
-      a: "We support highest quality up to 320kbps MP3 for pristine listening, as well as 192kbps and 128kbps for compact storage."
+      q: "What audio quality is provided?",
+      a: "We provide original streaming quality as provided directly by SoundCloud servers."
     },
     {
-      q: "Can I download entire playlists or albums?",
-      a: "Yes! Paste any SoundCloud playlist or album link to fetch all tracks instantly for individual download or batch conversion."
+      q: "Can I preview entire playlists or albums?",
+      a: "Yes! Paste any SoundCloud track or set link to fetch the official embedded player instantly."
     },
     {
       q: "Is it safe and secure?",
-      a: "All downloads are processed securely via encrypted connections without storing any personal user data or logs."
+      a: "All previews are loaded securely via encrypted connections. We don't store your URLs or files."
     }
   ];
 
@@ -143,13 +82,13 @@ export default function DownCloudMeApp() {
               <Link href="/" className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
                 DownCloud<span className="text-[#FF5500]">Me</span>
               </Link>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Soundcloud Downloader to MP3 Converter</p>
+              <p className="text-[11px] text-slate-400 hidden sm:block">Soundcloud Downloader &amp; Preview Tool</p>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
             <a href="#features" className="hover:text-white transition">Features</a>
-            <a href="#how-to" className="hover:text-white transition">How to Download</a>
+            <a href="#how-to" className="hover:text-white transition">How to Use</a>
             <a href="#faq" className="hover:text-white transition">FAQ</a>
           </nav>
 
@@ -158,7 +97,7 @@ export default function DownCloudMeApp() {
               href="#how-to" 
               className="px-4 py-2 rounded-xl bg-[#FF5500] hover:bg-[#e04c00] text-white font-semibold text-xs sm:text-sm transition shadow-md shadow-[#FF5500]/25 flex items-center gap-1.5"
             >
-              <Download className="h-4 w-4" />
+              <Headphones className="h-4 w-4" />
               <span>Get Started</span>
             </a>
           </div>
@@ -171,35 +110,34 @@ export default function DownCloudMeApp() {
         
         <div className="max-w-4xl mx-auto text-center relative z-10 space-y-6">
           
-          {/* Product update alert badge box */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FF5500]/10 border border-[#FF5500]/30 text-[#FF5500] text-xs font-medium animate-pulse">
             <Zap className="h-3.5 w-3.5" />
-            <span>New: 320kbps Lossless MP3 Engine & Playlist Batch Support</span>
+            <span>New: Official SoundCloud oEmbed Player Integration</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white balance">
-            SoundCloud to MP3 <span className="text-[#FF5500]">Downloader</span>
+            SoundCloud Track <span className="text-[#FF5500]">Previewer</span>
           </h1>
           <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto">
-            Convert and download SoundCloud tracks, sets, and playlists in high quality 320kbps MP3 instantly. No software installation or registration needed.
+            Preview and embed SoundCloud tracks and playlists instantly with official high fidelity audio players. No software installation or registration needed.
           </p>
 
           {/* Search Box Card */}
-          <div className="bg-white/10 backdrop-blur-xl border border-white/15 p-3 sm:p-4 rounded-3xl shadow-2xl max-w-3xl mx-auto mt-8">
+          <form onSubmit={handleSubmit} className="bg-white/10 backdrop-blur-xl border border-white/15 p-3 sm:p-4 rounded-3xl shadow-2xl max-w-3xl mx-auto mt-8">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <input
                   type="text"
                   placeholder="Paste SoundCloud track or playlist URL here..."
                   value={urlInput}
-                  onChange={(e) => { setUrlInput(e.target.value); setErrorMsg(''); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleConvert()}
+                  onChange={(e) => { setUrlInput(e.target.value); setError(null); }}
                   className="w-full bg-slate-900/90 border border-slate-700 rounded-2xl px-4 py-4 text-sm sm:text-base text-white placeholder:text-slate-400 focus:outline-none focus:border-[#FF5500] transition shadow-inner"
                 />
                 {urlInput && (
                   <button 
+                    type="button"
                     onClick={() => setUrlInput('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white px-2 py-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white px-2 py-1 cursor-pointer"
                   >
                     Clear
                   </button>
@@ -208,8 +146,9 @@ export default function DownCloudMeApp() {
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={handlePasteClipboard}
-                  className="px-4 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition border border-slate-700 flex items-center justify-center gap-1.5 shrink-0"
+                  className="px-4 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition border border-slate-700 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                   title="Paste from clipboard"
                 >
                   <Copy className="h-4 w-4" />
@@ -217,128 +156,110 @@ export default function DownCloudMeApp() {
                 </button>
 
                 <button
-                  onClick={() => handleConvert()}
+                  type="submit"
                   disabled={isLoading}
                   className="px-8 py-4 rounded-2xl bg-[#FF5500] hover:bg-[#e04c00] text-white font-bold text-base transition shadow-lg shadow-[#FF5500]/30 flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
                       <RefreshCw className="h-5 w-5 animate-spin" />
-                      <span>Processing...</span>
+                      <span>Loading...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="h-5 w-5" />
-                      <span>Download</span>
+                      <Headphones className="h-5 w-5" />
+                      <span>Preview</span>
                     </>
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Error Message */}
-            {errorMsg && (
+            {error && (
               <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs sm:text-sm flex items-center gap-2 text-left">
                 <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                <span>{errorMsg}</span>
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Sample Link Display Box */}
             <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-300 gap-2 text-left">
               <span className="flex items-center gap-1.5">
                 <span className="font-medium text-slate-400">Try sample link:</span>
                 <button 
-                  onClick={() => { setUrlInput(sampleUrl); handleConvert(sampleUrl); }}
-                  className="text-[#FF5500] hover:underline font-mono truncate max-w-[240px] sm:max-w-md text-left"
+                  type="button"
+                  onClick={handleSampleClick}
+                  className="text-[#FF5500] hover:underline font-mono truncate max-w-[240px] sm:max-w-md text-left cursor-pointer"
                 >
                   {sampleUrl}
                 </button>
               </span>
               <span className="text-[11px] text-slate-400">Click to test instantly</span>
             </div>
-          </div>
+          </form>
 
         </div>
       </section>
 
-      {/* Result Card Modal / Section (When Track Converted) */}
-      {trackData && (
+      {/* Result Card (Dark/Orange style, thumbnail, title, author, embedded player, Open on SoundCloud button, no download button) */}
+      {data && (
         <section className="py-8 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full -mt-10 relative z-30">
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-6 sm:p-8 flex flex-col md:flex-row gap-6 items-center">
-            <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-2xl overflow-hidden shrink-0 shadow-md border border-slate-100">
-              <Image 
-                src={trackData.thumbnail} 
-                alt={trackData.title}
-                fill
-                className="object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
-                <span className="px-2 py-0.5 rounded bg-black/70 text-white text-[10px] font-mono font-medium">
-                  {trackData.duration}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-6 sm:p-8 space-y-6">
+            
+            <div className="flex flex-col md:flex-row gap-6 items-center">
+              <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-2xl overflow-hidden shrink-0 shadow-md border border-slate-100">
+                <Image 
+                  src={data.thumbnailUrl} 
+                  alt={data.title}
+                  fill
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+
+              <div className="flex-1 space-y-3 text-center md:text-left w-full">
+                <span className="text-xs font-semibold text-[#FF5500] tracking-wider uppercase">
+                  SoundCloud Preview Ready
                 </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900">{data.title}</h3>
+                <p className="text-sm font-medium text-slate-600">By {data.author}</p>
+
+                <div className="pt-2">
+                  <a
+                    href={urlInput}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 py-3 px-6 rounded-xl bg-[#FF5500] hover:bg-[#e04c00] text-white font-bold text-sm transition shadow-lg shadow-[#FF5500]/25"
+                  >
+                    <span>Open on SoundCloud</span>
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
               </div>
             </div>
 
-            <div className="flex-1 space-y-4 text-center md:text-left w-full">
-              <div>
-                <span className="text-xs font-semibold text-[#FF5500] tracking-wider uppercase">Conversion Successful</span>
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1 line-clamp-1">{trackData.title}</h3>
-                <p className="text-sm font-medium text-slate-600 mt-0.5">{trackData.artist}</p>
+            {/* Embedded SoundCloud Player */}
+            {data.html && (
+              <div className="border-t border-slate-200 pt-6">
+                <h4 className="font-bold text-slate-900 text-sm mb-3">Embedded Player</h4>
+                <div 
+                  className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 p-2"
+                  dangerouslySetInnerHTML={{ __html: data.html }}
+                />
               </div>
+            )}
 
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-                  <span className="font-semibold text-slate-700">Size:</span> {trackData.fileSize}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-                  <span className="font-semibold text-slate-700">Format:</span> MP3 Audio
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                <select
-                  value={selectedBitrate}
-                  onChange={(e) => setSelectedBitrate(e.target.value)}
-                  className="w-full sm:w-auto bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#FF5500]"
-                >
-                  {trackData.bitrates.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="w-full sm:flex-1 py-3 px-6 rounded-xl bg-[#FF5500] hover:bg-[#e04c00] text-white font-bold text-sm transition shadow-lg shadow-[#FF5500]/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {isDownloading ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      <span>Downloading MP3...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      <span>Download MP3</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
           </div>
         </section>
       )}
 
-      {/* 3. Value Proposition Badges */}
+      {/* Value Proposition Badges */}
       <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { title: 'No Account Required', desc: 'Instant access without sign-up', icon: ShieldCheck },
-            { title: 'Up to 320kbps Quality', desc: 'Crystal clear high fidelity sound', icon: Zap },
+            { title: 'Original Quality', desc: 'Direct streaming preservation', icon: Zap },
             { title: 'Mobile & Desktop Ready', desc: 'Works on iOS, Android, Mac & PC', icon: Smartphone },
-            { title: '100% Secure & Private', desc: 'Encrypted downloads & no logging', icon: Lock },
+            { title: '100% Secure & Private', desc: 'Encrypted & no persistent URLs/logs', icon: Lock },
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
@@ -356,7 +277,7 @@ export default function DownCloudMeApp() {
         </div>
       </section>
 
-      {/* 4. Core Features Grid */}
+      {/* Core Features Grid */}
       <section id="features" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="text-xs font-bold text-[#FF5500] tracking-wider uppercase">Why Choose DownCloudMe</span>
@@ -364,25 +285,25 @@ export default function DownCloudMeApp() {
             Engineered for speed, fidelity, and reliability
           </h2>
           <p className="text-slate-600 text-sm sm:text-base mt-2">
-            The ultimate SoundCloud converter built to give you uninterrupted access to your favorite music and audio tracks.
+            The ultimate SoundCloud preview tool built to give you uninterrupted access to your favorite music and audio tracks.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
             {
-              title: "Hi-Res Audio (320kbps)",
-              desc: "Extract pristine audio streams directly from SoundCloud servers encoded at the highest possible bitrate for audiophile playback.",
+              title: "Original Quality Streaming",
+              desc: "Embed pristine audio streams directly from SoundCloud servers as provided by the artist for clean listening.",
               icon: Headphones
             },
             {
               title: "Playlist & Album Support",
-              desc: "Paste any set or playlist link to convert dozens of tracks simultaneously with lightning-fast batch processing.",
+              desc: "Paste any set or track link to fetch official interactive widgets with lightning-fast oEmbed resolution.",
               icon: Music
             },
             {
               title: "100% Safe & Anonymous",
-              desc: "No adware, no browser extensions, and no tracking cookies. Your downloads remain completely confidential.",
+              desc: "No adware, no browser extensions, and no tracking cookies. We don't store your URLs or files.",
               icon: ShieldCheck
             }
           ].map((feat, idx) => {
@@ -400,17 +321,17 @@ export default function DownCloudMeApp() {
         </div>
       </section>
 
-      {/* 5. Step-by-Step Instructions ("How to Download") */}
+      {/* Step-by-Step Instructions */}
       <section id="how-to" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full bg-slate-100/70 rounded-3xl my-8 border border-slate-200/60">
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <h2 className="text-3xl font-extrabold text-slate-900">How to Download SoundCloud Songs</h2>
+          <h2 className="text-3xl font-extrabold text-slate-900">How to Preview SoundCloud Songs</h2>
           <p className="text-slate-600 text-sm mt-2">Simple 3-step guide for desktop and mobile users.</p>
 
-          {/* Desktop / Mobile Tabs */}
           <div className="flex items-center justify-center gap-2 mt-6">
             <button
+              type="button"
               onClick={() => setActiveTab('desktop')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'desktop' 
                   ? 'bg-slate-900 text-white shadow-md' 
                   : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
@@ -419,8 +340,9 @@ export default function DownCloudMeApp() {
               Desktop (PC / Mac)
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('mobile')}
-              className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'mobile' 
                   ? 'bg-slate-900 text-white shadow-md' 
                   : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-300'
@@ -442,12 +364,12 @@ export default function DownCloudMeApp() {
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
                 <span className="absolute top-4 right-4 text-2xl font-mono font-bold text-slate-200">02</span>
                 <h3 className="font-bold text-slate-900 mb-2">Paste into DownCloudMe</h3>
-                <p className="text-xs text-slate-600">Paste the URL into the search box at the top of this page and click the Download button.</p>
+                <p className="text-xs text-slate-600">Paste the URL into the search box at the top of this page and click the Preview button.</p>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
                 <span className="absolute top-4 right-4 text-2xl font-mono font-bold text-slate-200">03</span>
-                <h3 className="font-bold text-slate-900 mb-2">Save MP3 File</h3>
-                <p className="text-xs text-slate-600">Choose your preferred bitrate (320kbps recommended) and click Download MP3 to save to your computer.</p>
+                <h3 className="font-bold text-slate-900 mb-2">Play &amp; Enjoy</h3>
+                <p className="text-xs text-slate-600">Interact with the embedded SoundCloud audio player or open the track directly on SoundCloud.</p>
               </div>
             </>
           ) : (
@@ -459,61 +381,36 @@ export default function DownCloudMeApp() {
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
                 <span className="absolute top-4 right-4 text-2xl font-mono font-bold text-slate-200">02</span>
-                <h3 className="font-bold text-slate-900 mb-2">Paste &amp; Convert</h3>
-                <p className="text-xs text-slate-600">Open Safari or Chrome on your phone, visit DownCloudMe, paste the link and hit Download.</p>
+                <h3 className="font-bold text-slate-900 mb-2">Paste &amp; Preview</h3>
+                <p className="text-xs text-slate-600">Open Safari or Chrome on your phone, visit DownCloudMe, paste the link and hit Preview.</p>
               </div>
               <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative">
                 <span className="absolute top-4 right-4 text-2xl font-mono font-bold text-slate-200">03</span>
-                <h3 className="font-bold text-slate-900 mb-2">Access in Files App</h3>
-                <p className="text-xs text-slate-600">Download the MP3 and access it instantly through your device&apos;s Files or Downloads folder.</p>
+                <h3 className="font-bold text-slate-900 mb-2">Stream on Mobile</h3>
+                <p className="text-xs text-slate-600">Stream tracks instantly using the responsive embedded player right inside your mobile browser.</p>
               </div>
             </>
           )}
         </div>
       </section>
 
-      {/* 6. Supported Formats & Advanced Features */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-8 sm:p-12 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="space-y-4 max-w-2xl">
-            <span className="px-3 py-1 rounded-full bg-[#FF5500]/20 text-[#FF5500] text-xs font-semibold">Pro Specifications</span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold">Supported Bitrates &amp; Formats</h3>
-            <p className="text-slate-300 text-sm leading-relaxed">
-              Whether you need maximum acoustic fidelity or compact storage for mobile offline listening, DownCloudMe supports 320kbps, 192kbps, and 128kbps MP3 exports. Works seamlessly across Chrome, Safari, Firefox, and Edge.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 w-full md:w-auto shrink-0">
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/15 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-[#FF5500]" />
-              <span className="text-sm font-semibold">320kbps Lossless MP3</span>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/15 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-[#FF5500]" />
-              <span className="text-sm font-semibold">Playlist &amp; Set Extraction</span>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/15 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-[#FF5500]" />
-              <span className="text-sm font-semibold">Zero Software Installation</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. FAQ Section */}
+      {/* FAQ Section */}
       <section id="faq" className="py-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-extrabold text-slate-900">Frequently Asked Questions</h2>
-          <p className="text-slate-600 text-sm mt-2">Got questions about downloading from SoundCloud? We have answers.</p>
+          <p className="text-slate-600 text-sm mt-2">Got questions about previewing SoundCloud tracks? We have answers.</p>
         </div>
 
         <div className="space-y-4">
           {faqs.map((faq, idx) => {
             const isOpen = activeFaq === idx;
             return (
-              <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div key={idx} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition">
                 <button
+                  type="button"
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
-                  className="w-full px-6 py-4 text-left font-semibold text-slate-900 flex items-center justify-between gap-4 hover:bg-slate-50 transition"
+                  className="w-full px-6 py-4 text-left font-semibold text-slate-900 flex items-center justify-between gap-4 hover:bg-slate-50 transition cursor-pointer"
+                  aria-expanded={isOpen}
                 >
                   <span className="text-sm sm:text-base">{faq.q}</span>
                   {isOpen ? <ChevronUp className="h-5 w-5 text-[#FF5500] shrink-0" /> : <ChevronDown className="h-5 w-5 text-slate-400 shrink-0" />}
@@ -529,19 +426,20 @@ export default function DownCloudMeApp() {
         </div>
       </section>
 
-      {/* 8. Footer & Sticky Bar */}
+      {/* Footer & Sticky Bar */}
       <aside aria-label="Quick sharing toolbar" className="fixed bottom-4 right-4 z-40 bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700 hidden sm:flex items-center gap-3">
         <span className="text-xs font-medium text-slate-300">Share DownCloudMe:</span>
         <button 
+          type="button"
           onClick={() => {
             navigator.clipboard.writeText(window.location.href);
             setCopiedLink(true);
             setTimeout(() => setCopiedLink(false), 2000);
           }}
-          className="px-3 py-1.5 rounded-xl bg-[#FF5500] hover:bg-[#e04c00] text-xs font-semibold transition flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-xl bg-[#FF5500] hover:bg-[#e04c00] text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
         >
           {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
-          {copiedLink ? 'Link Copied!' : 'Copy Link'}
+          {copiedLink ? 'Copied!' : 'Copy Link'}
         </button>
       </aside>
 
@@ -556,7 +454,7 @@ export default function DownCloudMeApp() {
                 <span className="text-lg font-bold text-white">DownCloudMe</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-                DownCloudMe is a fast, reliable SoundCloud to MP3 downloader tool designed for music enthusiasts, creators, and listeners worldwide. Convert tracks instantly in high fidelity 320kbps.
+                DownCloudMe is a fast, reliable SoundCloud preview and embedding tool designed for music enthusiasts, creators, and listeners worldwide.
               </p>
             </div>
 
@@ -564,7 +462,7 @@ export default function DownCloudMeApp() {
               <h4 className="text-sm font-semibold text-white mb-4">Quick Links</h4>
               <ul className="space-y-2 text-xs">
                 <li><a href="#features" className="hover:text-white transition">Core Features</a></li>
-                <li><a href="#how-to" className="hover:text-white transition">How to Download</a></li>
+                <li><a href="#how-to" className="hover:text-white transition">How to Use</a></li>
                 <li><a href="#faq" className="hover:text-white transition">FAQ &amp; Support</a></li>
               </ul>
             </div>
@@ -580,8 +478,8 @@ export default function DownCloudMeApp() {
           </div>
 
           <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 space-y-2">
-            <p>© {new Date().getFullYear()} DownCloudMe. Not affiliated with SoundCloud Ltd. Designed for personal offline audio conversion.</p>
-            <p className="text-[11px] text-slate-600">Please respect artists&apos; copyright. Do not download copyrighted tracks for commercial distribution.</p>
+            <p>© {new Date().getFullYear()} DownCloudMe. Not affiliated with SoundCloud Ltd. Designed for personal audio preview.</p>
+            <p className="text-[11px] text-slate-600">Only tracks the artist has made downloadable can be saved.</p>
           </div>
         </div>
       </footer>

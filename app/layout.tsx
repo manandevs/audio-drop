@@ -13,16 +13,50 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Audio Drop — Instant Audio & Voice Memo Sharing",
-  description: "AirDrop for audio files and voice memos with instant waveforms and playback",
+  title: "DownCloudMe – SoundCloud to MP3 Downloader & Converter",
+  description: "Convert and download SoundCloud tracks, sets, and playlists in high quality MP3 instantly. No registration or software required.",
+  openGraph: {
+    title: "DownCloudMe – SoundCloud to MP3 Downloader & Converter",
+    description: "Convert and download SoundCloud tracks, sets, and playlists in high quality MP3 instantly.",
+    type: "website",
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How to download SoundCloud songs on iPhone or Android?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Copy the SoundCloud track link, paste it into our search box above, wait for metadata resolution, and tap Download MP3."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is DownCloudMe 100% free to use?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, DownCloudMe is completely free with no registration or subscriptions required."
+        }
+      }
+    ]
+  };
+
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
